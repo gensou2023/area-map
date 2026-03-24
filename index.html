@@ -11,6 +11,35 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f5f5f5; }
 
+  /* Auth overlay */
+  #auth-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #f5f5f5; z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-box {
+    background: #fff; padding: 40px 36px; border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
+    width: 340px;
+  }
+  .auth-box h2 { font-size: 18px; color: #333; margin-bottom: 24px; }
+  .auth-box input {
+    display: block; width: 100%; padding: 10px 14px; margin-bottom: 14px;
+    border: 1px solid #ddd; border-radius: 6px; font-size: 15px;
+    font-family: inherit;
+  }
+  .auth-box input:focus { outline: none; border-color: #2E7D32; }
+  .auth-box button {
+    width: 100%; padding: 12px; background: #2E7D32; color: #fff;
+    border: none; border-radius: 6px; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
+  .auth-box button:hover { background: #256d29; }
+  .auth-error {
+    color: #c62828; font-size: 13px; margin-top: 10px; display: none;
+  }
+  #main-content { display: none; }
+
   .header {
     background: #2E7D32;
     color: white;
@@ -95,6 +124,18 @@
 </head>
 <body>
 
+<!-- Auth Screen -->
+<div id="auth-overlay">
+  <div class="auth-box">
+    <h2>ログイン</h2>
+    <input type="text" id="auth-user" placeholder="ユーザーID" autocomplete="off">
+    <input type="password" id="auth-pass" placeholder="パスワード" autocomplete="off">
+    <button onclick="tryLogin()">ログイン</button>
+    <div class="auth-error" id="auth-error">IDまたはパスワードが違います</div>
+  </div>
+</div>
+
+<div id="main-content">
 <div class="header">
   <h1>トリニコ特区マップ</h1>
   <p>3/24 定例資料 | 逗子駅前特区 + 鎌倉駅前特区 | 2026/3/21作成</p>
@@ -315,5 +356,24 @@ map.fitBounds([
 ], { padding: [30, 30] });
 </script>
 
+</div><!-- /main-content -->
+
+<script>
+function tryLogin() {
+  var u = document.getElementById('auth-user').value;
+  var p = document.getElementById('auth-pass').value;
+  if (u === 'toriniko' && p === 'toriniko') {
+    document.getElementById('auth-overlay').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+    // Leaflet needs a resize trigger after becoming visible
+    setTimeout(function() { map.invalidateSize(); }, 100);
+  } else {
+    document.getElementById('auth-error').style.display = 'block';
+  }
+}
+document.getElementById('auth-pass').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') tryLogin();
+});
+</script>
 </body>
 </html>
