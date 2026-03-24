@@ -365,8 +365,11 @@ function tryLogin() {
   if (u === 'toriniko' && p === 'toriniko') {
     document.getElementById('auth-overlay').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
-    // Leaflet needs a resize trigger after becoming visible
-    setTimeout(function() { map.invalidateSize(); }, 100);
+    // Leaflet needs a resize + re-fit after becoming visible
+    setTimeout(function() {
+      map.invalidateSize();
+      map.fitBounds([[35.280, 139.540],[35.325, 139.590]], { padding: [30, 30] });
+    }, 100);
   } else {
     document.getElementById('auth-error').style.display = 'block';
   }
