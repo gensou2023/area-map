@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>トリニコ特区マップ — 逗子・鎌倉</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f5f5f5; }
+
+  .header {
+    background: #2E7D32;
+    color: white;
+    padding: 16px 24px;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header p { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+
+  #map { width: 100%; height: calc(100vh - 200px); min-height: 500px; }
+
+  .legend {
+    background: white;
+    padding: 16px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    border-top: 1px solid #ddd;
+    font-size: 13px;
+    align-items: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 3px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+  }
+  .legend-line {
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .stats {
+    background: white;
+    padding: 12px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    border-top: 1px solid #eee;
+    font-size: 13px;
+  }
+  .stat-group { }
+  .stat-group strong { color: #2E7D32; }
+
+  .leaflet-popup-content {
+    font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    min-width: 180px;
+  }
+  .popup-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .popup-category {
+    display: inline-block;
+    background: #E8F5E9;
+    color: #2E7D32;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .popup-note { color: #666; font-size: 12px; }
+  .popup-status {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .status-active { background: #E8F5E9; color: #2E7D32; }
+  .status-dormant { background: #FFF3E0; color: #E65100; }
+  .status-candidate { background: #E3F2FD; color: #1565C0; }
+  .status-priority { background: #FCE4EC; color: #C62828; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>トリニコ特区マップ</h1>
+  <p>3/24 定例資料 | 逗子駅前特区 + 鎌倉駅前特区 | 2026/3/21作成</p>
+</div>
+
+<div id="map"></div>
+
+<div class="legend">
+  <span style="font-weight:700; margin-right:4px;">凡例:</span>
+  <div class="legend-item"><div class="legend-dot" style="background:#2E7D32;"></div>稼働中（2月出品あり）</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#FF9800;"></div>休眠（登録済・出品なし）</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#C62828;"></div>優先アタック候補</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#1565C0;"></div>その他候補</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2E7D32; opacity:0.25; width:18px; height:18px;"></div>特区コア（500m）</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2E7D32; opacity:0.10; width:18px; height:18px; border:2px dashed #2E7D32;"></div>特区拡張（800m）</div>
+</div>
+
+<div class="stats">
+  <div class="stat-group">全エリア: 登録 <strong>46</strong>店舗 / 2月稼働 <strong>23</strong>店舗 / アクティブ <strong>12</strong>店舗</div>
+  <div class="stat-group">逗子特区: 稼働 <strong>3</strong> → Must目標 <strong>5</strong>店舗</div>
+  <div class="stat-group">鎌倉特区: 稼働 <strong>2</strong> → Must目標 <strong>5</strong>店舗</div>
+</div>
+
+<script>
+// --- Map init ---
+const map = L.map('map').setView([35.305, 139.555], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19
+}).addTo(map);
+
+// --- Custom icons ---
+function makeIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:16px; height:16px; border-radius:50%;
+      background:${color}; border:2.5px solid white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    "></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -10]
+  });
+}
+const iconActive = makeIcon('#2E7D32');
+const iconDormant = makeIcon('#FF9800');
+const iconPriority = makeIcon('#C62828');
+const iconCandidate = makeIcon('#1565C0');
+
+function makePopup(name, category, status, statusClass, note) {
+  return `
+    <div class="popup-name">${name}</div>
+    <span class="popup-category">${category}</span>
+    <span class="popup-status ${statusClass}">${status}</span>
+    ${note ? `<div class="popup-note">${note}</div>` : ''}
+  `;
+}
+
+// --- 特区エリア circles（二重円: 500mコア + 800m拡張）---
+
+// 逗子駅: 35.2955, 139.5803
+L.circle([35.2955, 139.5803], {
+  radius: 800, color: '#2E7D32', fillColor: '#2E7D32',
+  fillOpacity: 0.04, weight: 2, opacity: 0.35, dashArray: '8,6'
+}).addTo(map).bindPopup('<strong>逗子駅前 トリニコ特区</strong><br>拡張エリア（800m）<br>徒歩10分圏内');
+
+L.circle([35.2955, 139.5803], {
+  radius: 500, color: '#2E7D32', fillColor: '#2E7D32',
+  fillOpacity: 0.12, weight: 2.5, opacity: 0.6
+}).addTo(map).bindPopup('<strong>逗子駅前 コアエリア</strong><br>半径500m（徒歩6分）<br>ここに5店舗を集中させる');
+
+// 鎌倉駅: 35.3190, 139.5505
+L.circle([35.3190, 139.5505], {
+  radius: 800, color: '#2E7D32', fillColor: '#2E7D32',
+  fillOpacity: 0.04, weight: 2, opacity: 0.35, dashArray: '8,6'
+}).addTo(map).bindPopup('<strong>鎌倉駅前 トリニコ特区</strong><br>拡張エリア（800m）<br>徒歩10分圏内');
+
+L.circle([35.3190, 139.5505], {
+  radius: 500, color: '#2E7D32', fillColor: '#2E7D32',
+  fillOpacity: 0.12, weight: 2.5, opacity: 0.6
+}).addTo(map).bindPopup('<strong>鎌倉駅前 コアエリア</strong><br>半径500m（徒歩6分）<br>御成通り4店舗が集中');
+
+// --- 駅マーカー ---
+function stationMarker(lat, lng, name) {
+  L.marker([lat, lng], {
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="
+        background:#333; color:white; font-size:11px; font-weight:700;
+        padding:2px 8px; border-radius:4px; white-space:nowrap;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      ">${name}</div>`,
+      iconSize: [0, 0],
+      iconAnchor: [-10, 10]
+    })
+  }).addTo(map);
+}
+stationMarker(35.2955, 139.5803, '逗子駅');
+stationMarker(35.3190, 139.5505, '鎌倉駅');
+
+// =============================================
+// 逗子エリア — 稼働中
+// =============================================
+L.marker([35.2920, 139.5730], { icon: iconActive })
+  .addTo(map).bindPopup(makePopup('Rainbow Bakery 逗子店', 'パン', '稼働中（25回/月）', 'status-active', '注文の70%集中。特区の基盤店舗'));
+
+L.marker([35.2850, 139.5650], { icon: iconActive })
+  .addTo(map).bindPopup(makePopup('Rainbow Bakery 本店（小坪）', 'パン', '稼働中（13回/月）', 'status-active', ''));
+
+L.marker([35.2960, 139.5780], { icon: iconActive })
+  .addTo(map).bindPopup(makePopup('菓匠からくさ', '和菓子', '稼働中（9回/月）', 'status-active', 'インタビュー日程調整中。note記事第1弾'));
+
+// 逗子エリア — 休眠
+L.marker([35.2945, 139.5795], { icon: iconDormant })
+  .addTo(map).bindPopup(makePopup('Ble Dore (ブレドール) 逗子店', 'パン', '休眠（1回/月）', 'status-dormant', '登録済みだが出品ほぼ停止。再稼働の声がけ対象'));
+
+// =============================================
+// 逗子エリア — 優先アタック候補
+// =============================================
+L.marker([35.2980, 139.5760], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('パンプレッソ', 'パン', '優先候補', 'status-priority', 'アンケートリクエスト。逗子山の根'));
+
+L.marker([35.2950, 139.5820], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('こよみ', '和菓子', '優先候補', 'status-priority', '銀座商店街。行列店。豆大福=ロス出やすい【Must M2: パン以外】'));
+
+L.marker([35.2948, 139.5830], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('CREMAHOP', 'アイスクリーム', '優先候補', 'status-priority', 'アンケートリクエスト。2万フォロワー。銀座商店街【Must M2: パン以外】'));
+
+L.marker([35.2952, 139.5810], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('AID.KITCHEN', '惣菜', '優先候補', 'status-priority', 'アンケートリクエスト。惣菜弁当グランプリ受賞【Must M2: パン以外】'));
+
+L.marker([35.2958, 139.5808], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('珠屋洋菓子店', '洋菓子', '優先候補', 'status-priority', 'アンケート「珠や」。駅徒歩2分。1950年創業'));
+
+L.marker([35.2930, 139.5850], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('鬼助ベニエ', 'パン', '優先候補', 'status-priority', 'アンケート「喜助ベーカリー」の可能性大'));
+
+// 逗子 — その他候補
+L.marker([35.2940, 139.5815], { icon: iconCandidate })
+  .addTo(map).bindPopup(makePopup('サンルイ島 逗子駅前店', '洋菓子', '候補', 'status-candidate', 'アンケートリクエスト。葉山にも店舗あり'));
+
+L.marker([35.2935, 139.5770], { icon: iconCandidate })
+  .addTo(map).bindPopup(makePopup("Oven's（オーブンズ）", 'パン', '候補', 'status-candidate', '住宅街の人気パン屋。朝から行列'));
+
+L.marker([35.2965, 139.5785], { icon: iconCandidate })
+  .addTo(map).bindPopup(makePopup('ウテナベーカリー', 'パン', '候補', 'status-candidate', '2022年開店'));
+
+// =============================================
+// 鎌倉エリア — 稼働中
+// =============================================
+L.marker([35.3175, 139.5530], { icon: iconActive })
+  .addTo(map).bindPopup(makePopup('たい焼きなみへい', '和菓子', '稼働中（11回/月）', 'status-active', '鎌倉エリアのトップ'));
+
+L.marker([35.3195, 139.5515], { icon: iconActive })
+  .addTo(map).bindPopup(makePopup('甲賀米粉たい焼き 小町通り店', '和菓子', '稼働中（12回/月）', 'status-active', ''));
+
+// 鎌倉 — 休眠
+L.marker([35.3581, 139.5202], { icon: iconDormant })
+  .addTo(map).bindPopup(makePopup('こだわりRinaのパン工房', 'パン', '休眠（2回/月）', 'status-dormant', '大船エリア。特区外だが再稼働候補'));
+
+L.marker([35.3110, 139.5507], { icon: iconDormant })
+  .addTo(map).bindPopup(makePopup('トリニコ＠鎌倉', '食品全般', '休眠', 'status-dormant', '材木座。2月出品なし'));
+
+// =============================================
+// 鎌倉エリア — 優先アタック候補（御成通り集中）
+// =============================================
+L.marker([35.3185, 139.5475], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('KIBIYAベーカリー 本店', 'パン', '優先候補', 'status-priority', '御成町。1948年創業。IG 1.3万。老舗の導入=波及効果大'));
+
+L.marker([35.3192, 139.5520], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('パラダイスアレイ', 'パン', '優先候補', 'status-priority', 'レンバイ内。自家製酵母。IG 7.8K'));
+
+L.marker([35.3180, 139.5465], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('レ・ザンジュ 鎌倉本店', '洋菓子', '優先候補', 'status-priority', '御成町。1982年創業。IG 8.4K【Must M2: パン以外】'));
+
+L.marker([35.3188, 139.5490], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('メゾンドルル', '洋菓子', '優先候補', 'status-priority', '御成町。カヌレ・フィナンシェ。IG 7.3K【Must M2: パン以外】'));
+
+L.marker([35.3183, 139.5480], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('利々庵（リリアン）', 'パン', '優先候補', 'status-priority', '御成町。パン百名店2度選出。約100種=ロス出やすい'));
+
+L.marker([35.3210, 139.5545], { icon: iconPriority })
+  .addTo(map).bindPopup(makePopup('ベルグフェルド', 'パン・洋菓子', '優先候補', 'status-priority', '雪ノ下。1980年創業ドイツパン。カフェ併設'));
+
+// 鎌倉 — その他候補
+L.marker([35.3198, 139.5535], { icon: iconCandidate })
+  .addTo(map).bindPopup(makePopup('KIBIYAベーカリー 段葛店', 'パン', '候補', 'status-candidate', '小町通り。食べログパン百名店'));
+
+L.marker([35.3200, 139.5528], { icon: iconCandidate })
+  .addTo(map).bindPopup(makePopup('ライ麦ハウスベーカリー', 'パン', '候補', 'status-candidate', '小町通り。北欧スタイル・ライ麦パン専門'));
+
+L.marker([35.3193, 139.5540], { icon: iconCandidate })
+  .addTo(map).bindPopup(makePopup('BREAD IT BE', 'パン', '候補', 'status-candidate', '小町通り。自家製粉。売り切れ次第閉店'));
+
+L.marker([35.3170, 139.5500], { icon: iconCandidate })
+  .addTo(map).bindPopup(makePopup('mbs 46.7', 'パン', '候補', 'status-candidate', '大町。自家製酵母手ごね。バインミー人気'));
+
+L.marker([35.3205, 139.5510], { icon: iconCandidate })
+  .addTo(map).bindPopup(makePopup('豊島屋 本店', '和菓子', '候補', 'status-candidate', '小町通り。鳩サブレーで有名'));
+
+// =============================================
+// 御成通りライン（鎌倉特区の攻めライン）
+// =============================================
+L.polyline([
+  [35.3188, 139.5460],
+  [35.3185, 139.5475],
+  [35.3183, 139.5480],
+  [35.3188, 139.5490]
+], {
+  color: '#C62828', weight: 3, opacity: 0.5, dashArray: '6,4'
+}).addTo(map).bindPopup('<strong>御成通り</strong><br>KIBIYA・レザンジュ・リリアン・メゾンドルルが集中。<br>1日で4店舗回れるストリート営業ライン');
+
+// --- Fit bounds to show both areas ---
+map.fitBounds([
+  [35.280, 139.540],
+  [35.325, 139.590]
+], { padding: [30, 30] });
+</script>
+
+</body>
+</html>
